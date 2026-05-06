@@ -1,0 +1,75 @@
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import PropertyCard from './PropertyCard';
+import PropertyFilters from './PropertyFilters';
+import { propertyService } from '../../services/propertyService';
+
+interface PropertyFilters {
+  city: string;
+  priceMin: number;
+  priceMax: number;
+  type: string;
+  status: string;
+}
+
+export const PropertyList: React.FC = () => {
+  const [filters, setFilters] = useState<PropertyFilters>({
+    city: '',
+    priceMin: 0,
+    priceMax: 999999999,
+    type: 'all',
+    status: 'available'
+  });
+  
+  const [sortBy, setSortBy] = useState('newest');
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['properties', filters, sortBy, page],
+    queryFn: () => propertyService.getProperties({
+      ...filters,
+      sortBy,
+      page,
+      limit: 12
+    })
+  });
+
+  const handleFilterChange = (newFilters: Partial<PropertyFilters>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+    setPage(1);
+  };
+
+  if (isLoading) return <div className="loading-spinner">Caricamento...</div>;
+  if (error) return <div className="error-message">Errore nel caricamento</div>;
+
+  return (
+    <div className="property-list-container">
+      <PropertyFilters onFilterChange={handleFilterChange} />
+      
+      <div className="sort-controls">
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <option value="newest">Più recenti</option>
+          <option value="price-low">Prezzo: Basso → Alto</option>
+          <option value="price-high">Prezzo: Alto → Basso</option>
+          <option value="area">Per metratura</option>
+        </select>
+      </div>
+
+      <div className="properties-grid">
+        {data?.properties.map(property => (
+          <PropertyCard key={property.id} property={property} />
+        ))}
+      </div>
+
+      <div className="pagination">
+        <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+          Precedente
+        </button>
+        <span>Pagina {page}</span>
+        <button disabled={!data?.hasMore} onClick={() => setPage(p => p + 1)}>
+          Successivo
+        </button>
+      </div>
+    </div>
+  );
+};
